@@ -1,11 +1,12 @@
+import 'package:android_alarm_manager_plus/android_alarm_manager_plus.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_local_notifications_project/core/base_view_state/base_view_state.dart';
-import 'package:flutter_local_notifications_project/core/utils/local_notification_service.dart';
+import 'package:flutter_local_notifications_project/core/constants/notifications_constants/notification_constants.dart';
+import 'package:flutter_local_notifications_project/main.dart';
 
 class ScheduledNotificationViewModel extends ChangeNotifier {
-  List<PendingNotificationRequest> _scheduledNotifications = [];
-  BaseViewState<List<PendingNotificationRequest>> getScheduledNotificationResult =
+  List<PendingNotification> _scheduledNotifications = [];
+  BaseViewState<List<PendingNotification>> getScheduledNotificationResult =
       IdleState();
 
   CancelScheduledNotificationData cancelScheduledNotificationData =
@@ -15,8 +16,23 @@ class ScheduledNotificationViewModel extends ChangeNotifier {
     try {
       getScheduledNotificationResult = LoadingState();
       notifyListeners();
-      _scheduledNotifications = await LocalNotificationService.getAllPendingNotifications();
-      getScheduledNotificationResult = SuccessState<List<PendingNotificationRequest>>(
+
+      var notifications =
+          await sharedPreferences.getStringList(
+            NotificationsConstants.scheduledNotificationListKey,
+          ) ??
+          [];
+
+      _scheduledNotifications = notifications.map((e) {
+        var parts = e.split("~");
+        return PendingNotification(
+          id: int.tryParse(parts[0]) ?? 0,
+          title: parts[1],
+          body: parts[2],
+          dataTime: parts[3],
+        );
+      }).toList();
+      getScheduledNotificationResult = SuccessState<List<PendingNotification>>(
         data: _scheduledNotifications,
       );
     } catch (e) {
@@ -30,7 +46,20 @@ class ScheduledNotificationViewModel extends ChangeNotifier {
       cancelScheduledNotificationData.id = notificationId;
       cancelScheduledNotificationData.status = LoadingState();
       notifyListeners();
-      await LocalNotificationService.cancelNotification(notificationId);
+      await AndroidAlarmManager.cancel(notificationId);
+      await sharedPreferences.remove(NotificationsConstants.scheduledNotificationListKey);
+      var list =
+          await sharedPreferences.getStringList(
+            NotificationsConstants.scheduledNotificationListKey,
+          ) ??
+          [];
+      list.removeWhere((element) {
+        return element.split("~")[0] == "$notificationId";
+      });
+      print(list);
+      if(list.isNotEmpty){
+        await sharedPreferences.setStringList(NotificationsConstants.scheduledNotificationListKey, list);
+      }
       cancelScheduledNotificationData.status = SuccessState(data: null);
     } catch (e) {
       cancelScheduledNotificationData.status = ErrorState(error: e);
@@ -42,7 +71,7 @@ class ScheduledNotificationViewModel extends ChangeNotifier {
         (element) => element.id == cancelScheduledNotificationData.id,
       ),
     );
-    getScheduledNotificationResult = SuccessState<List<PendingNotificationRequest>>(
+    getScheduledNotificationResult = SuccessState<List<PendingNotification>>(
       data: _scheduledNotifications,
     );
     notifyListeners();
@@ -55,4 +84,17 @@ class CancelScheduledNotificationData {
   int? id;
   BaseViewState<void> status;
   CancelScheduledNotificationData({this.id, required this.status});
+}
+
+class PendingNotification {
+  int id;
+  String title;
+  String body;
+  String dataTime;
+  PendingNotification({
+    required this.id,
+    required this.title,
+    required this.body,
+    required this.dataTime,
+  });
 }

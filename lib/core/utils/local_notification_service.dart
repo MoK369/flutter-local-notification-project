@@ -1,22 +1,32 @@
 import 'dart:io';
+import 'dart:isolate';
+import 'dart:ui';
+import 'package:android_alarm_manager_plus/android_alarm_manager_plus.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_local_notifications_project/core/constants/notifications_constants/notification_constants.dart';
 import 'package:flutter_local_notifications_project/core/utils/unique_id_provider.dart';
+import 'package:flutter_local_notifications_project/main.dart';
 import 'package:flutter_timezone/flutter_timezone.dart';
 import 'package:path_provider/path_provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:timezone/data/latest.dart';
 import 'package:timezone/timezone.dart';
+import "package:flutter/material.dart";
 
 abstract class LocalNotificationService {
-  static final FlutterLocalNotificationsPlugin
-  _flutterLocalNotificationsPlugin = FlutterLocalNotificationsPlugin();
+  @pragma('vm:entry-point')
+  static final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin =
+      FlutterLocalNotificationsPlugin();
+  @pragma('vm:entry-point')
+  static SendPort? uiSendPort;
 
+  @pragma('vm:entry-point')
   static Future<bool?> initLocalNotificationPlugin() async {
     InitializationSettings initializationSettings = InitializationSettings(
       android: AndroidInitializationSettings("res_notification_logo"),
     );
-    return _flutterLocalNotificationsPlugin.initialize(
+    return flutterLocalNotificationsPlugin.initialize(
       initializationSettings,
       onDidReceiveNotificationResponse: onNotificationTap,
       onDidReceiveBackgroundNotificationResponse: onNotificationTap,
@@ -26,7 +36,8 @@ abstract class LocalNotificationService {
   @pragma('vm:entry-point')
   static onNotificationTap(NotificationResponse notification) {}
 
-  static Future<String> _copyAssetToFile(String assetPath) async {
+  @pragma('vm:entry-point')
+  static Future<String> copyAssetToFile(String assetPath) async {
     final String fileName = assetPath
         .split('/')
         .last
@@ -45,7 +56,8 @@ abstract class LocalNotificationService {
     return file.path;
   }
 
-  static AndroidNotificationDetails _channelDetails({
+  @pragma('vm:entry-point')
+  static AndroidNotificationDetails channelDetails({
     String? filePath,
     required String channelId,
     required String channelName,
@@ -64,6 +76,8 @@ abstract class LocalNotificationService {
       category: category,
       groupKey: groupKey,
       sound: customNotificationSound,
+      colorized: true,
+      color: Colors.teal,
       styleInformation: filePath == null
           ? null
           : BigPictureStyleInformation(FilePathAndroidBitmap(filePath)),
@@ -71,20 +85,21 @@ abstract class LocalNotificationService {
   }
 
   /// ======= Basic Notifications =======
+  @pragma('vm:entry-point')
   static Future<void> showBasicNotification({
     required String title,
     required String body,
   }) async {
     NotificationDetails notificationDetails = NotificationDetails(
-      android: _channelDetails(
-        filePath: await _copyAssetToFile("assets/images/on_the_map.jpg"),
+      android: channelDetails(
+        filePath: await copyAssetToFile("assets/images/on_the_map.jpg"),
         channelId: NotificationsConstants.basicChannelId,
         channelName: NotificationsConstants.basicChannelName,
         channelDescription: NotificationsConstants.basicChannelDescription,
         groupKey: NotificationsConstants.basicChannelGroupKey,
       ),
     );
-    return _flutterLocalNotificationsPlugin.show(
+    return flutterLocalNotificationsPlugin.show(
       UniqueIdProvider.provide(),
       title,
       body,
@@ -96,13 +111,14 @@ abstract class LocalNotificationService {
   /// =================================
 
   /// ====== Repeated Notification =========
+  @pragma('vm:entry-point')
   static Future<void> showRepeatedNotification({
     required String title,
     required String body,
     required RepeatInterval repeatedInterval,
   }) async {
     NotificationDetails notificationDetails = NotificationDetails(
-      android: _channelDetails(
+      android: channelDetails(
         channelId: NotificationsConstants.repeatedChannelId,
         channelName: NotificationsConstants.repeatedChannelName,
         channelDescription: NotificationsConstants.repeatedChannelDescription,
@@ -110,7 +126,7 @@ abstract class LocalNotificationService {
         category: AndroidNotificationCategory.reminder,
       ),
     );
-    return _flutterLocalNotificationsPlugin.periodicallyShow(
+    return flutterLocalNotificationsPlugin.periodicallyShow(
       NotificationsConstants.repeatedNotificationId,
       title,
       body,
@@ -124,19 +140,22 @@ abstract class LocalNotificationService {
   /// ===================================
 
   /// ======= Scheduled Notifications ========
+  @pragma('vm:entry-point')
   static Future<void> showScheduledNotification({
     required String title,
     required String body,
     required DateTime selectedDateTime,
   }) async {
     NotificationDetails notificationDetails = NotificationDetails(
-      android: _channelDetails(
+      android: channelDetails(
         channelId: NotificationsConstants.scheduledChannelId,
         channelName: NotificationsConstants.scheduledChannelName,
         channelDescription: NotificationsConstants.scheduledChannelDescription,
         groupKey: NotificationsConstants.scheduledChannelGroupKey,
-        category: AndroidNotificationCategory.reminder,
-        customNotificationSound: RawResourceAndroidNotificationSound("custom_notification_sound")
+        category: AndroidNotificationCategory.alarm,
+        customNotificationSound: RawResourceAndroidNotificationSound(
+          "custom_notification_sound",
+        ),
       ),
     );
     initializeTimeZones();
@@ -144,7 +163,7 @@ abstract class LocalNotificationService {
     print("after: ${local.name}");
     print("time: ${TZDateTime.now(local).hour}");
     print(selectedDateTime.toString());
-    return _flutterLocalNotificationsPlugin.zonedSchedule(
+    return flutterLocalNotificationsPlugin.zonedSchedule(
       UniqueIdProvider.provide(),
       title,
       body,
@@ -158,22 +177,73 @@ abstract class LocalNotificationService {
         selectedDateTime.minute,
       ),
       notificationDetails,
-      androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+      androidScheduleMode: AndroidScheduleMode.alarmClock,
+    );
+  }
+
+  @pragma('vm:entry-point')
+  static Future<bool> showScheduledNotificationWithAndroidAlarmManager({
+    required String title,
+    required String body,
+    required DateTime selectedDateTime,
+  }) async {
+    final uniqueId = UniqueIdProvider.provide();
+    var result = await sharedPreferences.getStringList(
+      NotificationsConstants.scheduledNotificationListKey,
+    );
+    if (result == null) {
+      print("result equal null");
+      await sharedPreferences.setStringList(
+        NotificationsConstants.scheduledNotificationListKey,
+        ["$uniqueId~$title~$body~$selectedDateTime"],
+      );
+    } else {
+      result.add("$uniqueId~$title~$body~$selectedDateTime");
+      print("result equal ${result}");
+      await sharedPreferences.setStringList(
+        NotificationsConstants.scheduledNotificationListKey,
+        result,
+      );
+    }
+    print("Scheduling at: ${selectedDateTime}");
+    return AndroidAlarmManager.oneShotAt(
+      selectedDateTime,
+      uniqueId,
+      androidManagerCallBack,
+      allowWhileIdle: true,
+      alarmClock: true,
+      exact: true,
+      wakeup: true,
+      rescheduleOnReboot: true,
     );
   }
 
   /// ===================================
 
   static Future<void> cancelAll() {
-    return _flutterLocalNotificationsPlugin.cancelAll();
+    return flutterLocalNotificationsPlugin.cancelAll();
+  }
+
+  static Future<void> cancelAllScheduledAndroidAlarmNotification() async {
+    var notifications =
+        await sharedPreferences.getStringList(
+          NotificationsConstants.scheduledNotificationListKey,
+        ) ??
+        [];
+
+    notifications.forEach((notification) async {
+      int id = int.tryParse(notification.split("~").first) ?? 0;
+      await AndroidAlarmManager.cancel(id);
+    });
+    await sharedPreferences.clear();
   }
 
   static Future<void> cancelNotification(int id) {
-    return _flutterLocalNotificationsPlugin.cancel(id);
+    return flutterLocalNotificationsPlugin.cancel(id);
   }
 
   static Future<List<PendingNotificationRequest>> getAllPendingNotifications() {
-    return _flutterLocalNotificationsPlugin.pendingNotificationRequests();
+    return flutterLocalNotificationsPlugin.pendingNotificationRequests();
   }
 }
 
@@ -181,3 +251,55 @@ abstract class LocalNotificationService {
 // 2.Basic Notification
 // 3.Repeated Notification
 // 4.Scheduled Notification
+@pragma('vm:entry-point')
+void androidManagerCallBack() async {
+  await LocalNotificationService.initLocalNotificationPlugin();
+  final prefs = await SharedPreferences.getInstance();
+  await prefs.reload();
+  var result = await prefs.getStringList(
+    NotificationsConstants.scheduledNotificationListKey,
+  );
+  print("before: $result");
+  if (result == null) {
+    LocalNotificationService.uiSendPort ??= IsolateNameServer.lookupPortByName(
+      NotificationsConstants.uiMainIsolateName,
+    );
+    LocalNotificationService.uiSendPort?.send("done");
+    return;
+  }
+  print("${result.first}");
+  var notificationParts = result.first.split("~");
+  print("triggering notification ---------");
+  NotificationDetails notificationDetails = NotificationDetails(
+    android: LocalNotificationService.channelDetails(
+      channelId: NotificationsConstants.scheduledChannelId,
+      channelName: NotificationsConstants.scheduledChannelName,
+      channelDescription: NotificationsConstants.scheduledChannelDescription,
+      groupKey: NotificationsConstants.scheduledChannelGroupKey,
+      category: AndroidNotificationCategory.alarm,
+      customNotificationSound: RawResourceAndroidNotificationSound(
+        "custom_notification_sound",
+      ),
+    ),
+  );
+  await LocalNotificationService.flutterLocalNotificationsPlugin.show(
+    UniqueIdProvider.provide(),
+    notificationParts[1],
+    notificationParts[2] + notificationParts[3],
+    notificationDetails,
+    payload: "${notificationParts[0]} ${notificationParts[1]}",
+  );
+  await prefs.remove(NotificationsConstants.scheduledNotificationListKey);
+  result.removeAt(0);
+  print("after remove: $result");
+  if (result.isNotEmpty) {
+    await prefs.setStringList(
+      NotificationsConstants.scheduledNotificationListKey,
+      result,
+    );
+  }
+  LocalNotificationService.uiSendPort ??= IsolateNameServer.lookupPortByName(
+    NotificationsConstants.uiMainIsolateName,
+  );
+  LocalNotificationService.uiSendPort?.send("done");
+}

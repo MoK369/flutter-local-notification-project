@@ -23,4 +23,9 @@ abstract class NotificationsConstants {
       "This is the channel for Scheduled Notifications";
   static const String scheduledChannelGroupKey =
       "com.main369.flutter_local_notifications_project.Scheduled_Notifications";
+
+  static const String scheduledNotificationListKey = "scheduled_notification_list";
+
+  /// The name associated with the UI isolate's [SendPort].
+  static const String uiMainIsolateName = 'isolate';
 }
