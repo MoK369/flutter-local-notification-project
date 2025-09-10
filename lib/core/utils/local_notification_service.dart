@@ -191,6 +191,19 @@ abstract class LocalNotificationService {
     var result = await sharedPreferences.getStringList(
       NotificationsConstants.scheduledNotificationListKey,
     );
+
+    print("Scheduling at: ${selectedDateTime}");
+    var isAlarmSet = await AndroidAlarmManager.oneShotAt(
+      selectedDateTime,
+      uniqueId,
+      androidManagerCallBack,
+      allowWhileIdle: true,
+      alarmClock: true,
+      exact: true,
+      wakeup: true,
+      rescheduleOnReboot: true,
+    );
+
     if (result == null) {
       print("result equal null");
       await sharedPreferences.setStringList(
@@ -205,17 +218,7 @@ abstract class LocalNotificationService {
         result,
       );
     }
-    print("Scheduling at: ${selectedDateTime}");
-    return AndroidAlarmManager.oneShotAt(
-      selectedDateTime,
-      uniqueId,
-      androidManagerCallBack,
-      allowWhileIdle: true,
-      alarmClock: true,
-      exact: true,
-      wakeup: true,
-      rescheduleOnReboot: true,
-    );
+    return isAlarmSet;
   }
 
   /// ===================================

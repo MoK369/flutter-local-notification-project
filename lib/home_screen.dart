@@ -1,4 +1,6 @@
 import 'package:android_alarm_manager_plus/android_alarm_manager_plus.dart';
+import 'package:auto_start_permission/auto_start_permission.dart';
+import 'package:battery_optimization_helper/battery_optimization_helper.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications_project/core/constants/notifications_constants/notification_constants.dart';
 import 'package:flutter_local_notifications_project/core/utils/local_notification_service.dart';
@@ -18,17 +20,58 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   void initState() {
     super.initState();
-    print("valueNotifier: ${androidAlarmNotifier.value}");
-    _checkExactAlarmPermission();
-    uiMainPort.listen((message) async {
-      await sharedPreferences.reload();
+    checkAndroidScheduleExactAlarmPermission().then((value) async {
+      // var count = sharedPreferences.getInt(
+      //   NotificationsConstants.autoStartPermissionCountKey,
+      // );
+      AutoStartPermissionState autoStartStatus = await AutoStartPermission
+          .instance
+          .checkAutoStartState();
+      bool isAvailable = await AutoStartPermission.instance
+          .isAutoStartPermissionAvailable();
+      print("is autoStartPermission Available: ${isAvailable}");
+      if (autoStartStatus == AutoStartPermissionState.disabled && isAvailable) {
+        await AutoStartPermission.instance.requestAutoStartPermission();
+        // await sharedPreferences.setInt(
+        //   NotificationsConstants.autoStartPermissionCountKey,
+        //   count ?? 0 + 1,
+        // );
+      }
+      await checkBatteryOptimization();
     });
   }
 
-  void _checkExactAlarmPermission() async {
-    final currentStatus = await Permission.scheduleExactAlarm.status;
-    if (currentStatus.isDenied) {
-      await Permission.scheduleExactAlarm.request();
+  Future<void> checkAndroidScheduleExactAlarmPermission() async {
+    final status = await Permission.scheduleExactAlarm.status;
+    print('Schedule exact alarm permission: $status.');
+    if (status.isDenied) {
+      print('Requesting schedule exact alarm permission...');
+      final res = await Permission.scheduleExactAlarm.request();
+      print(
+        'Schedule exact alarm permission ${res.isGranted ? '' : 'not'} granted.',
+      );
+    }
+    // final ignoreBatteryStatus =
+    //     await Permission.ignoreBatteryOptimizations.status;
+    // if (ignoreBatteryStatus.isDenied) {
+    //   final res = await Permission.ignoreBatteryOptimizations.request();
+    //   print(
+    //     'ignoreBatteryStatus permission ${res.isGranted ? '' : 'not'} granted.',
+    //   );
+    // }
+  }
+
+  Future<void> checkBatteryOptimization() async {
+    bool isEnabled =
+    await BatteryOptimizationHelper.isBatteryOptimizationEnabled();
+    print("Battery optimization is enabled: $isEnabled");
+    if (isEnabled) {
+      await BatteryOptimizationHelper.requestDisableBatteryOptimization();
+      bool isEnabled =
+      await BatteryOptimizationHelper.isBatteryOptimizationEnabled();
+      print("Battery optimization is enabled: $isEnabled");
+      // if (isEnabled)
+      //   await BatteryOptimizationHelper.openBatteryOptimizationSettings();
     }
   }
 
@@ -110,6 +153,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       body: "Don't forget to make your plant looks good",
                       selectedDateTime: selectedDateTime,
                     ).catchError((error) {
+                      print(error);
                       ScaffoldMessenger.of(context).showSnackBar(
                         SnackBar(
                           content: Text("Error: ${error.toString()}"),
