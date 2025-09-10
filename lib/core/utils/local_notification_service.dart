@@ -1,4 +1,6 @@
 import 'dart:io';
+import 'package:alarm/alarm.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_local_notifications_project/core/constants/notifications_constants/notification_constants.dart';
@@ -136,7 +138,9 @@ abstract class LocalNotificationService {
         channelDescription: NotificationsConstants.scheduledChannelDescription,
         groupKey: NotificationsConstants.scheduledChannelGroupKey,
         category: AndroidNotificationCategory.reminder,
-        customNotificationSound: RawResourceAndroidNotificationSound("custom_notification_sound")
+        customNotificationSound: RawResourceAndroidNotificationSound(
+          "custom_notification_sound",
+        ),
       ),
     );
     initializeTimeZones();
@@ -159,6 +163,47 @@ abstract class LocalNotificationService {
       ),
       notificationDetails,
       androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+    );
+  }
+
+  /// ===================================
+
+  /// ========= Scheduled Alarm =========
+  static AlarmSettings _getAlarmSettings({
+    required String title,
+    required String body,
+    required DateTime selectedDateTime,
+  }) {
+    return AlarmSettings(
+      id: UniqueIdProvider.provide(),
+      dateTime: selectedDateTime,
+      assetAudioPath: 'assets/sounds/custom_notification_sound.mp3',
+      loopAudio: true,
+      vibrate: true,
+      warningNotificationOnKill: true,
+      androidFullScreenIntent: true,
+      volumeSettings: VolumeSettings.fixed(volume: 0.8, volumeEnforced: true),
+      notificationSettings: NotificationSettings(
+        title: title,
+        body: body,
+        stopButton: 'Stop',
+        icon: 'res_notification_logo',
+        iconColor: Colors.teal,
+      ),
+    );
+  }
+
+  static Future<void> setAlarm({
+    required String title,
+    required String body,
+    required DateTime selectedDateTime,
+  }) {
+    return Alarm.set(
+      alarmSettings: _getAlarmSettings(
+        title: title,
+        body: body,
+        selectedDateTime: selectedDateTime,
+      ),
     );
   }
 

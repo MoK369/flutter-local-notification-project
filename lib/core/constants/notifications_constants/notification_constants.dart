@@ -23,4 +23,6 @@ abstract class NotificationsConstants {
       "This is the channel for Scheduled Notifications";
   static const String scheduledChannelGroupKey =
       "com.main369.flutter_local_notifications_project.Scheduled_Notifications";
+
+  static const String autoStartPermissionCountKey= "count_auto_start_requests";
 }
