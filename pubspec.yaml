@@ -41,6 +41,9 @@ dependencies:
   flutter_timezone: ^4.1.1
   flutter_native_splash: ^2.4.6
   flutter_launcher_icons: ^0.14.4
+  auto_start_permission: ^1.0.1
+  battery_optimization_helper: ^0.0.5
+  permission_handler: ^12.0.1
 
 dev_dependencies:
   flutter_test:

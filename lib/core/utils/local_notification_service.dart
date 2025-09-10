@@ -135,7 +135,7 @@ abstract class LocalNotificationService {
         channelName: NotificationsConstants.scheduledChannelName,
         channelDescription: NotificationsConstants.scheduledChannelDescription,
         groupKey: NotificationsConstants.scheduledChannelGroupKey,
-        category: AndroidNotificationCategory.reminder,
+        category: AndroidNotificationCategory.call,
         customNotificationSound: RawResourceAndroidNotificationSound("custom_notification_sound")
       ),
     );
