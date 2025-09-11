@@ -3,6 +3,7 @@ import 'package:battery_optimization_helper/battery_optimization_helper.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications_project/core/constants/notifications_constants/notification_constants.dart';
 import 'package:flutter_local_notifications_project/core/utils/local_notification_service.dart';
+import 'package:flutter_local_notifications_project/core/utils/native_local_notifications_service.dart';
 import 'package:flutter_local_notifications_project/core/utils/notification_dialogs.dart';
 import 'package:flutter_local_notifications_project/scheduled_notifications/scheduled_notifications.dart';
 import 'package:permission_handler/permission_handler.dart';
@@ -147,21 +148,22 @@ class _HomeScreenState extends State<HomeScreen> {
                           context,
                         );
                     if (selectedDateTime == null) return;
-                    bool errorOccurred = false;
-                    await LocalNotificationService.showScheduledNotification(
-                      title: "Prune Your Plant 🌿",
-                      body: "Don't forget to make your plant looks good",
-                      selectedDateTime: selectedDateTime,
-                    ).catchError((error) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Text("Error: ${error.toString()}"),
-                          duration: const Duration(seconds: 5),
-                        ),
-                      );
-                      errorOccurred = true;
-                    });
-                    if (errorOccurred) return;
+                    await NativeLocalNotificationsService.scheduleExactAlarm(selectedDateTime);
+                    // bool errorOccurred = false;
+                    // await LocalNotificationService.showScheduledNotification(
+                    //   title: "Prune Your Plant 🌿",
+                    //   body: "Don't forget to make your plant looks good",
+                    //   selectedDateTime: selectedDateTime,
+                    // ).catchError((error) {
+                    //   ScaffoldMessenger.of(context).showSnackBar(
+                    //     SnackBar(
+                    //       content: Text("Error: ${error.toString()}"),
+                    //       duration: const Duration(seconds: 5),
+                    //     ),
+                    //   );
+                    //   errorOccurred = true;
+                    // });
+                    // if (errorOccurred) return;
                     ScaffoldMessenger.of(context).showSnackBar(
                       SnackBar(
                         content: Text(

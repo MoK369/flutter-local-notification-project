@@ -45,7 +45,10 @@ abstract class NotificationDialogs {
     TimeOfDay? selectedTimeOfDay = await showTimePicker(
       context: context,
       initialTime: TimeOfDay.now().replacing(
-        minute: TimeOfDay.now().minute + 2,
+        hour: (TimeOfDay.now().minute + 2) >= 60
+            ? TimeOfDay.now().hour + 1
+            : TimeOfDay.now().hour,
+        minute: (TimeOfDay.now().minute + 2 )% 60,
       ),
     );
     if (selectedTimeOfDay == null) return null;

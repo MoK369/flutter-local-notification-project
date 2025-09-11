@@ -23,6 +23,7 @@
         android:icon="@mipmap/launcher_icon">
 
         <!-- Services -->
+        <receiver android:name=".NotificationReceiver" android:exported="true" />
         <service android:name="com.gdelataillade.alarm.services.NotificationOnKillService" />
 
         <!-- Receivers for flutter_local_notifications -->
